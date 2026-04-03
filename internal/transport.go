@@ -43,7 +43,7 @@ func RegisterSip(r Register) []byte {
 			"Call-ID: %d@%s\r\n"+
 			"CSeq: %d REGISTER\r\n"+
 			"Contact: <sip:%s@%s;transport=tcp>\r\n"+
-			"%s"+ // Cabeçalho de autorização (vazio ou preenchido)
+			"%s"+
 			"Max-Forwards: 70\r\n"+
 			"Expires: 3600\r\n"+
 			"Content-Length: 0\r\n\r\n",
@@ -67,7 +67,6 @@ func ParseAuth(response string) *SipAuth {
 	realmReg := regexp.MustCompile(`realm="([^"]+)"`)
 	opaqueReg := regexp.MustCompile(`opaque="([^"]+)"`)
 
-	// Executa as buscas no texto da resposta
 	if match := nonceReg.FindStringSubmatch(response); len(match) > 1 {
 		auth.Nonce = match[1]
 	}
