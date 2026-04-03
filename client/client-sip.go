@@ -12,6 +12,7 @@ import (
 type Client struct {
 	IpServer   string
 	PortServer int
+	PortLocal  int
 	Ramal      string
 	Password   string
 }
@@ -37,6 +38,7 @@ func RegisterSip(client Client) {
 			Realm:    "",
 			Opaque:   "",
 		},
+		PortLocal: client.PortLocal,
 	}
 
 	log.Printf("Registering SIP with %v", register)

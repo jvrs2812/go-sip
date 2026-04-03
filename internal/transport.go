@@ -7,11 +7,12 @@ import (
 )
 
 type Register struct {
-	IpLocal  string
-	IpServer string
-	Ramal    string
-	Cseq     int
-	Auth     *SipAuth
+	IpLocal   string
+	IpServer  string
+	Ramal     string
+	Cseq      int
+	Auth      *SipAuth
+	PortLocal int
 }
 
 type SipAuth struct {
@@ -42,7 +43,7 @@ func RegisterSip(r Register) []byte {
 			"To: <sip:%s@%s>\r\n"+
 			"Call-ID: %d@%s\r\n"+
 			"CSeq: %d REGISTER\r\n"+
-			"Contact: <sip:%s@%s;transport=tcp>\r\n"+
+			"Contact: <sip:%s@%s:%d;transport=tcp>\r\n"+
 			"%s"+
 			"Max-Forwards: 70\r\n"+
 			"Expires: 3600\r\n"+
@@ -53,7 +54,7 @@ func RegisterSip(r Register) []byte {
 		r.Ramal, r.IpServer,
 		time.Now().Unix(), r.IpLocal,
 		r.Cseq,
-		r.Ramal, r.IpLocal,
+		r.Ramal, r.IpLocal, r.PortLocal,
 		authHeader,
 	)
 
