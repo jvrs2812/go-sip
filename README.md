@@ -42,6 +42,7 @@ go mod tidy
 c := client.Client{
     IpServer:   "sip.example.com",
     PortServer: 5060,
+    PortLocal:  5060,
     Ramal:      "1001",
     Password:   "secure_password",
 }
