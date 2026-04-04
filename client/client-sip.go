@@ -4,7 +4,6 @@ import (
 	"log"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/jvrs2812/go-sip/internal"
 )
@@ -47,26 +46,81 @@ func RegisterSip(client Client) {
 		log.Printf("Error to send register: %v", err)
 	}
 
-	response, err := tcp.ReadFullResponse(2 * time.Second)
-	if err != nil {
-		log.Printf("Error read response: %v", err)
-		return
+	response := <-tcp.OnMessage
+	log.Printf("Response received: %s", response)
+}
+
+func (c *Client) HandleAuth(response401 string) {
+	tcp := internal.GetTCP(c.IpServer + ":" + strconv.Itoa(c.PortServer))
+	ipLocal, _ := internal.GetInterfaceIP()
+
+	authData := internal.ParseAuth(response401)
+
+	reg := internal.Register{
+		IpLocal:   ipLocal,
+		IpServer:  c.IpServer,
+		Ramal:     c.Ramal,
+		Cseq:      2,
+		PortLocal: c.PortLocal,
+		Auth: &internal.SipAuth{
+			Password: c.Password,
+			Nonce:    authData.Nonce,
+			Realm:    authData.Realm,
+			Opaque:   authData.Opaque,
+		},
 	}
 
-	log.Printf("Search Realm And Nonce:\n%s", response)
+	log.Printf("[SIP] Sending REGISTER with Hash MD5 (CSeq 2)...")
+	tcp.Send(internal.RegisterSip(reg))
+}
 
-	if strings.Contains(response, "401 Unauthorized") {
-		authData := internal.ParseAuth(response)
+func (c *Client) WatchEvents() {
+	tcp := internal.GetTCP(c.IpServer + ":" + strconv.Itoa(c.PortServer))
+	tcp.StartDispatcher()
 
-		register.Cseq = 2
-		register.Auth.Nonce = authData.Nonce
-		register.Auth.Realm = authData.Realm
-		register.Auth.Opaque = authData.Opaque
+	go func() {
+		log.Println("[Client] Watch Event Start...")
+		for msg := range tcp.OnMessage {
+			if msg == "" {
+				continue
+			}
 
-		tcp.Send(internal.RegisterSip(register))
+			log.Println("[WatchEvents] Message received:", msg)
 
-		finalResponse, _ := tcp.ReadFullResponse(2 * time.Second)
-		log.Printf("Receive Register Server: %s", finalResponse)
-	}
+			if strings.Contains(msg, "401 Unauthorized") {
+				log.Println("[WatchEvents] Receive 401. ReAuthenticating...")
+				c.HandleAuth(msg)
+				continue
+			}
 
+			if strings.Contains(msg, "200 OK") && strings.Contains(msg, "CSeq: 2 REGISTER") {
+				log.Println("[WatchEvents] Registered successfully with authentication!")
+				continue
+			}
+
+			if strings.Contains(msg, "INVITE") {
+				log.Println("[WatchEvents] INVITE RECEIVED !!!!")
+				log.Printf("Data of INVITE: %s", msg)
+				ringingPacket := internal.Build180Ringing(msg)
+				if ringingPacket != nil {
+					tcp.Send(ringingPacket)
+					log.Println("[WatchEvents] 180 Ringing send successfully!")
+				}
+				continue
+			}
+
+			if strings.Contains(msg, "OPTIONS") {
+				log.Println("[WatchEvents] Response Keep-alive (OPTIONS)")
+				response := internal.Build200OK(msg)
+
+				if err := tcp.Send(response); err != nil {
+					log.Printf("[WatchEvents] Error To Sending OPTIONS: %v", err)
+				} else {
+					log.Println("[WatchEvents] 200 OK Sending OPTIONS!")
+				}
+
+				continue
+			}
+		}
+	}()
 }

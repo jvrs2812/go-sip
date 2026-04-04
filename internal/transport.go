@@ -2,7 +2,9 @@ package internal
 
 import (
 	"fmt"
+	"log"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -79,4 +81,79 @@ func ParseAuth(response string) *SipAuth {
 	}
 
 	return auth
+}
+
+func Build200OK(optionsMsg string) []byte {
+
+	viaReg := regexp.MustCompile(`(?m)^Via: (.*)`)
+	fromReg := regexp.MustCompile(`(?m)^From: (.*)`)
+	toReg := regexp.MustCompile(`(?m)^To: (.*)`)
+	callIDReg := regexp.MustCompile(`(?m)^Call-ID: (.*)`)
+	cseqReg := regexp.MustCompile(`(?m)^CSeq: (.*)`)
+
+	via := viaReg.FindStringSubmatch(optionsMsg)
+	from := fromReg.FindStringSubmatch(optionsMsg)
+	to := toReg.FindStringSubmatch(optionsMsg)
+	callID := callIDReg.FindStringSubmatch(optionsMsg)
+	cseq := cseqReg.FindStringSubmatch(optionsMsg)
+
+	if len(via) < 2 || len(from) < 2 || len(to) < 2 || len(callID) < 2 || len(cseq) < 2 {
+		log.Println("[SIP] Error to parse headers do OPTIONS")
+		return nil
+	}
+	response := fmt.Sprintf(
+		"SIP/2.0 200 OK\r\n"+
+			"Via: %s\r\n"+
+			"From: %s\r\n"+
+			"To: %s\r\n"+
+			"Call-ID: %s\r\n"+
+			"CSeq: %s\r\n"+
+			"User-Agent: jvrs-go-sip\r\n"+
+			"Content-Length: 0\r\n\r\n",
+		strings.TrimSpace(via[1]),
+		strings.TrimSpace(from[1]),
+		strings.TrimSpace(to[1]),
+		strings.TrimSpace(callID[1]),
+		strings.TrimSpace(cseq[1]),
+	)
+
+	return []byte(response)
+}
+
+func Build180Ringing(inviteMsg string) []byte {
+	viaReg := regexp.MustCompile(`(?m)^Via: (.*)`)
+	fromReg := regexp.MustCompile(`(?m)^From: (.*)`)
+	toReg := regexp.MustCompile(`(?m)^To: (.*)`)
+	callIDReg := regexp.MustCompile(`(?m)^Call-ID: (.*)`)
+	cseqReg := regexp.MustCompile(`(?m)^CSeq: (.*)`)
+
+	via := viaReg.FindStringSubmatch(inviteMsg)
+	from := fromReg.FindStringSubmatch(inviteMsg)
+	to := toReg.FindStringSubmatch(inviteMsg)
+	callID := callIDReg.FindStringSubmatch(inviteMsg)
+	cseq := cseqReg.FindStringSubmatch(inviteMsg)
+
+	if len(via) < 2 || len(from) < 2 || len(to) < 2 || len(callID) < 2 || len(cseq) < 2 {
+		log.Println("[SIP] Error to extract headers for 180 Ringing")
+		return nil
+	}
+
+	response := fmt.Sprintf(
+		"SIP/2.0 180 Ringing\r\n"+
+			"Via: %s\r\n"+
+			"From: %s\r\n"+
+			"To: %s;tag=%d\r\n"+
+			"Call-ID: %s\r\n"+
+			"CSeq: %s\r\n"+
+			"User-Agent: go-sip\r\n"+
+			"Content-Length: 0\r\n\r\n",
+		strings.TrimSpace(via[1]),
+		strings.TrimSpace(from[1]),
+		strings.TrimSpace(to[1]),
+		time.Now().Unix(),
+		strings.TrimSpace(callID[1]),
+		strings.TrimSpace(cseq[1]),
+	)
+
+	return []byte(response)
 }

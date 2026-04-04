@@ -1,17 +1,22 @@
 package internal
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
 
 type tcpConnection struct {
-	addr string
-	conn net.Conn
-	mu   sync.Mutex
+	addr      string
+	conn      net.Conn
+	mu        sync.Mutex
+	OnMessage chan string
 }
 
 var (
@@ -25,10 +30,10 @@ func (t *tcpConnection) ReadFullResponse(timeout time.Duration) (string, error) 
 		return "", err
 	}
 
-	conn.SetReadDeadline(time.Now().Add(timeout))
+	//conn.SetReadDeadline(time.Now().Add(timeout))
 
 	fullResponse := ""
-	tmp := make([]byte, 1024)
+	tmp := make([]byte, 2048)
 
 	for {
 		n, err := conn.Read(tmp)
@@ -63,7 +68,8 @@ func GetTCP(addr string) *tcpConnection {
 	}
 
 	tc := &tcpConnection{
-		addr: addr,
+		addr:      addr,
+		OnMessage: make(chan string, 100),
 	}
 	connections[addr] = tc
 	log.Printf("[tcpConnection] Created singleton for %s", addr)
@@ -114,4 +120,74 @@ func (t *tcpConnection) Send(data []byte) error {
 
 	log.Printf("[tcpConnection] Data sent successfully (%d bytes)", len(data))
 	return nil
+}
+
+func (t *tcpConnection) StartDispatcher() {
+	go func() {
+		log.Printf("[Dispatcher] Iniciado para %s", t.addr)
+		for {
+			conn, err := t.getConn()
+			if err != nil {
+				log.Printf("[Dispatcher] Error connecting: %v. Trying in 2s...", err)
+				time.Sleep(2 * time.Second)
+				continue
+			}
+			reader := bufio.NewReader(conn)
+
+			for {
+				msg, err := t.parseSipMessage(reader)
+				if err != nil {
+					log.Printf("[Dispatcher] Connection Lost: %v", err)
+					t.mu.Lock()
+					if t.conn != nil {
+						t.conn.Close()
+						t.conn = nil
+					}
+					t.mu.Unlock()
+					break
+				}
+
+				if msg != "" {
+					t.OnMessage <- msg
+				}
+			}
+		}
+	}()
+}
+
+func (t *tcpConnection) parseSipMessage(reader *bufio.Reader) (string, error) {
+	header := ""
+	contentLength := 0
+
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return "", err
+		}
+
+		header += line
+
+		if strings.Contains(strings.ToLower(line), "content-length:") {
+			parts := strings.Split(line, ":")
+			if len(parts) > 1 {
+				val := strings.TrimSpace(parts[1])
+				contentLength, _ = strconv.Atoi(val)
+			}
+		}
+		if line == "\r\n" || line == "\n" {
+			break
+		}
+	}
+
+	body := ""
+	if contentLength > 0 {
+		buf := make([]byte, contentLength)
+		_, err := io.ReadFull(reader, buf)
+		if err != nil {
+			return header, err
+		}
+		body = string(buf)
+	}
+
+	return header + body, nil
 }
