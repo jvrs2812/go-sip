@@ -98,6 +98,10 @@ func (c *Client) AcceptInvite(inviteData types.InviteData) {
 
 }
 
+func (c *Client) SendAudio(payload []byte, source types.AudioData) {
+	internal.SendRTP(payload, source)
+}
+
 func (c *Client) WatchEvents() {
 	tcp := internal.GetTCP(c.IpServer + ":" + strconv.Itoa(c.PortServer))
 	tcp.StartDispatcher()
