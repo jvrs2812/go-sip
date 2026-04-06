@@ -71,6 +71,7 @@ func main() {
 		Password:         "senha_segura",
 		OnInviteReceived: OnInviteReceivedAudio,
 		OnAudioReceived:  OnAudioReceived,
+		PortForRtp:       6000,
 	}
 
 	c.WatchEvents()
