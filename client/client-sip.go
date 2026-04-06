@@ -104,7 +104,7 @@ func (c *Client) WatchEvents() {
 	go func() {
 		log.Println("[Client] Watch Event Start...")
 		for msg := range tcp.OnMessage {
-			if msg == "" {
+			if strings.TrimSpace(msg) == "" {
 				continue
 			}
 
