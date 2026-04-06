@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/jvrs2812/go-sip/internal"
+	"github.com/jvrs2812/go-sip/types"
 )
 
 type Client struct {
@@ -15,12 +16,12 @@ type Client struct {
 	PortForRtp        int
 	Ramal             string
 	Password          string
-	OnInviteReceived  func(c *Client, inviteData internal.InviteData)
-	OnAudioReceived   func(data internal.AudioData)
+	OnInviteReceived  func(c *Client, inviteData types.InviteData)
+	OnAudioReceived   func(data types.AudioData)
 	cancelRtpListener context.CancelFunc
 }
 
-type OnInviteReceived func(c *Client, inviteData internal.InviteData)
+type OnInviteReceived func(c *Client, inviteData types.InviteData)
 
 func RegisterSip(client Client) {
 
@@ -80,7 +81,7 @@ func (c *Client) HandleAuth(response401 string) {
 	tcp.Send(internal.RegisterSip(reg))
 }
 
-func (c *Client) AcceptInvite(inviteData internal.InviteData) {
+func (c *Client) AcceptInvite(inviteData types.InviteData) {
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancelRtpListener = cancel
 

@@ -4,10 +4,10 @@ import (
 	"log"
 
 	"github.com/jvrs2812/go-sip/client"
-	"github.com/jvrs2812/go-sip/internal"
+	"github.com/jvrs2812/go-sip/types"
 )
 
-func onInviteReceivedExample(c *client.Client, inviteData internal.InviteData) {
+func onInviteReceivedExample(c *client.Client, inviteData types.InviteData) {
 	log.Printf("Invite received from %s", inviteData.From)
 }
 

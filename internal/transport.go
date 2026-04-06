@@ -6,15 +6,9 @@ import (
 	"regexp"
 	"strings"
 	"time"
-)
 
-type InviteData struct {
-	Via    string
-	From   string
-	To     string
-	CallID string
-	Cseq   string
-}
+	"github.com/jvrs2812/go-sip/types"
+)
 
 type Register struct {
 	IpLocal    string
@@ -166,7 +160,7 @@ func Build180Ringing(inviteMsg string) []byte {
 	return []byte(response)
 }
 
-func ParseInviteIP(inviteMsg string) (InviteData, error) {
+func ParseInviteIP(inviteMsg string) (types.InviteData, error) {
 	viaReg := regexp.MustCompile(`(?m)^Via: (.*)`)
 	fromReg := regexp.MustCompile(`(?m)^From: (.*)`)
 	toReg := regexp.MustCompile(`(?m)^To: (.*)`)
@@ -180,9 +174,9 @@ func ParseInviteIP(inviteMsg string) (InviteData, error) {
 	cseq := cseqReg.FindStringSubmatch(inviteMsg)
 
 	if via == nil || from == nil || to == nil || callID == nil || cseq == nil {
-		return InviteData{}, fmt.Errorf("failed to parse Message from INVITE")
+		return types.InviteData{}, fmt.Errorf("failed to parse Message from INVITE")
 	} else {
-		return InviteData{
+		return types.InviteData{
 			From:   strings.TrimSpace(from[1]),
 			Via:    strings.TrimSpace(via[1]),
 			To:     strings.TrimSpace(to[1]),
@@ -192,7 +186,7 @@ func ParseInviteIP(inviteMsg string) (InviteData, error) {
 	}
 }
 
-func Build200OKInvite(inviteMsg InviteData, localIP string, rtpPort int) []byte {
+func Build200OKInvite(inviteMsg types.InviteData, localIP string, rtpPort int) []byte {
 
 	sdp := fmt.Sprintf(
 		"v=0\r\n"+
@@ -213,7 +207,7 @@ func Build200OKInvite(inviteMsg InviteData, localIP string, rtpPort int) []byte 
 		"SIP/2.0 200 OK\r\n"+
 			"Via: %s\r\n"+
 			"From: %s\r\n"+
-			"To: %s;tag=%d\r\n"+ // Tag é importante para identificar a sessão
+			"To: %s;tag=%d\r\n"+
 			"Call-ID: %s\r\n"+
 			"CSeq: %s\r\n"+
 			"Contact: <sip:asterisk@%s:5060;transport=tcp>\r\n"+

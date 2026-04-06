@@ -4,14 +4,14 @@ import (
 	"log"
 
 	"github.com/jvrs2812/go-sip/client"
-	"github.com/jvrs2812/go-sip/internal"
+	"github.com/jvrs2812/go-sip/types"
 )
 
-func OnAudioReceivedLog(data internal.AudioData) {
+func OnAudioReceivedLog(data types.AudioData) {
 	log.Printf("Audio Received Bytes: %d, PayloadType: %d", len(data.Payload), data.PayloadType)
 }
 
-func OnInviteReceived(c *client.Client, inviteData internal.InviteData) {
+func OnInviteReceived(c *client.Client, inviteData types.InviteData) {
 	log.Printf("Invite received from: %s", inviteData.From)
 	c.AcceptInvite(inviteData)
 }

@@ -7,19 +7,11 @@ import (
 	"log"
 	"net"
 	"time"
+
+	"github.com/jvrs2812/go-sip/types"
 )
 
-type AudioData struct {
-	Version     int
-	PayloadType uint8
-	SequenceNum uint16
-	Timestamp   uint32
-	SSRC        uint32
-	Payload     []byte
-	RemoteAddr  string
-}
-
-type OnAudioReceived func(data AudioData)
+type OnAudioReceived func(data types.AudioData)
 
 func StartRTPListener(ctx context.Context, port int, callback OnAudioReceived) {
 	addr := fmt.Sprintf("0.0.0.0:%d", port)
@@ -60,7 +52,7 @@ func StartRTPListener(ctx context.Context, port int, callback OnAudioReceived) {
 				payload := make([]byte, n-12)
 				copy(payload, buffer[12:n])
 
-				data := AudioData{
+				data := types.AudioData{
 					Version:     int(version),
 					PayloadType: payloadType,
 					SequenceNum: seqNum,

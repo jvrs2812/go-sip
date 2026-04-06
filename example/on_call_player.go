@@ -5,7 +5,7 @@ import (
 
 	"github.com/hajimehoshi/oto/v2"
 	"github.com/jvrs2812/go-sip/client"
-	"github.com/jvrs2812/go-sip/internal"
+	"github.com/jvrs2812/go-sip/types"
 	"github.com/zaf/g711"
 )
 
@@ -38,7 +38,7 @@ func InitAudioDevice() {
 	player.Play()
 }
 
-func OnAudioReceived(data internal.AudioData) {
+func OnAudioReceived(data types.AudioData) {
 	var pcm []byte
 
 	switch data.PayloadType {
@@ -57,7 +57,7 @@ func OnAudioReceived(data internal.AudioData) {
 	}
 }
 
-func OnInviteReceivedAudio(c *client.Client, inviteData internal.InviteData) {
+func OnInviteReceivedAudio(c *client.Client, inviteData types.InviteData) {
 	log.Printf("Invite received from: %s", inviteData.From)
 	InitAudioDevice()
 	c.AcceptInvite(inviteData)
