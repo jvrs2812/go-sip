@@ -14,14 +14,17 @@ import (
 
 type OnAudioReceived func(client interface{}, data types.AudioData)
 
+type OnStartCall func(client interface{}, data types.AudioData)
+
 var (
 	rtpConn      net.PacketConn
 	outSeq       uint16
 	outTimestamp uint32
 	sendMu       sync.Mutex
+	startCall    bool
 )
 
-func StartRTPListener(ctx context.Context, port int, owner interface{}, callback OnAudioReceived) {
+func StartRTPListener(ctx context.Context, port int, owner interface{}, callback OnAudioReceived, callbackStart OnStartCall) {
 	addr := fmt.Sprintf("0.0.0.0:%d", port)
 	conn, err := net.ListenPacket("udp", addr)
 	if err != nil {
@@ -31,6 +34,7 @@ func StartRTPListener(ctx context.Context, port int, owner interface{}, callback
 
 	sendMu.Lock()
 	rtpConn = conn
+	startCall = true
 	sendMu.Unlock()
 
 	defer func() {
@@ -78,6 +82,14 @@ func StartRTPListener(ctx context.Context, port int, owner interface{}, callback
 					SSRC:        ssrc,
 					Payload:     payload,
 					RemoteAddr:  remoteAddr.String(),
+				}
+
+				if startCall {
+					log.Printf("[RTP] First packet received from %s. Starting call...\n", remoteAddr.String())
+					startCall = false
+					if callbackStart != nil {
+						callbackStart(owner, data)
+					}
 				}
 
 				if callback != nil {

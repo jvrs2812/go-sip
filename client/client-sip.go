@@ -18,6 +18,7 @@ type Client struct {
 	Password          string
 	OnInviteReceived  func(c *Client, inviteData types.InviteData)
 	OnAudioReceived   func(c *Client, data types.AudioData)
+	OnStartCall       func(c *Client, data types.AudioData)
 	cancelRtpListener context.CancelFunc
 }
 
@@ -89,6 +90,13 @@ func (c *Client) AcceptInvite(inviteData types.InviteData) {
 		if c.OnAudioReceived != nil {
 			if clientPtr, ok := owner.(*Client); ok {
 				c.OnAudioReceived(clientPtr, data)
+			}
+		}
+
+	}, func(client interface{}, data types.AudioData) {
+		if c.OnStartCall != nil {
+			if clientPtr, ok := client.(*Client); ok {
+				c.OnStartCall(clientPtr, data)
 			}
 		}
 	})
