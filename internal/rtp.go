@@ -86,6 +86,8 @@ func SendRTP(payload []byte, source types.AudioData) {
 		return
 	}
 
+	log.Printf("[SendRTP] Send audio for %s", source.RemoteAddr)
+
 	remoteAddr, err := net.ResolveUDPAddr("udp", source.RemoteAddr)
 	if err != nil {
 		log.Printf("[RTP Send] Erro ao resolver endereço: %v", err)
@@ -103,7 +105,7 @@ func SendRTP(payload []byte, source types.AudioData) {
 
 	_, err = rtpConn.WriteTo(packet, remoteAddr)
 	if err != nil {
-		log.Printf("[RTP Send] Erro ao enviar: %v", err)
+		log.Printf("[RTP Send] Error to send: %v", err)
 	}
 
 	outSeq++
