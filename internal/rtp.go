@@ -6,12 +6,20 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/jvrs2812/go-sip/types"
 )
 
 type OnAudioReceived func(data types.AudioData)
+
+var (
+	rtpConn      net.PacketConn
+	outSeq       uint16
+	outTimestamp uint32
+	sendMu       sync.Mutex
+)
 
 func StartRTPListener(ctx context.Context, port int, callback OnAudioReceived) {
 	addr := fmt.Sprintf("0.0.0.0:%d", port)
@@ -68,4 +76,36 @@ func StartRTPListener(ctx context.Context, port int, callback OnAudioReceived) {
 			}
 		}
 	}
+}
+
+func SendRTP(payload []byte, source types.AudioData) {
+	sendMu.Lock()
+	defer sendMu.Unlock()
+
+	if rtpConn == nil {
+		return
+	}
+
+	remoteAddr, err := net.ResolveUDPAddr("udp", source.RemoteAddr)
+	if err != nil {
+		log.Printf("[RTP Send] Erro ao resolver endereço: %v", err)
+		return
+	}
+
+	header := make([]byte, 12)
+	header[0] = 0x80
+	header[1] = byte(source.PayloadType & 0x7F)
+	binary.BigEndian.PutUint16(header[2:4], outSeq)
+	binary.BigEndian.PutUint32(header[4:8], outTimestamp)
+	binary.BigEndian.PutUint32(header[8:12], source.SSRC)
+
+	packet := append(header, payload...)
+
+	_, err = rtpConn.WriteTo(packet, remoteAddr)
+	if err != nil {
+		log.Printf("[RTP Send] Erro ao enviar: %v", err)
+	}
+
+	outSeq++
+	outTimestamp += uint32(len(payload))
 }
