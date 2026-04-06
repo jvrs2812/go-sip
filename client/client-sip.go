@@ -12,7 +12,6 @@ import (
 type Client struct {
 	IpServer          string
 	PortServer        int
-	PortLocal         int
 	PortForRtp        int
 	Ramal             string
 	Password          string
@@ -44,7 +43,7 @@ func RegisterSip(client Client) {
 			Realm:    "",
 			Opaque:   "",
 		},
-		PortLocal: client.PortLocal,
+		PortServer: client.PortServer,
 	}
 
 	log.Printf("Registering SIP with %v", register)
@@ -64,11 +63,11 @@ func (c *Client) HandleAuth(response401 string) {
 	authData := internal.ParseAuth(response401)
 
 	reg := internal.Register{
-		IpLocal:   ipLocal,
-		IpServer:  c.IpServer,
-		Ramal:     c.Ramal,
-		Cseq:      2,
-		PortLocal: c.PortLocal,
+		IpLocal:    ipLocal,
+		IpServer:   c.IpServer,
+		Ramal:      c.Ramal,
+		Cseq:       2,
+		PortServer: c.PortServer,
 		Auth: &internal.SipAuth{
 			Password: c.Password,
 			Nonce:    authData.Nonce,

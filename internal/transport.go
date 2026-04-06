@@ -17,12 +17,12 @@ type InviteData struct {
 }
 
 type Register struct {
-	IpLocal   string
-	IpServer  string
-	Ramal     string
-	Cseq      int
-	Auth      *SipAuth
-	PortLocal int
+	IpLocal    string
+	IpServer   string
+	Ramal      string
+	Cseq       int
+	Auth       *SipAuth
+	PortServer int
 }
 
 type SipAuth struct {
@@ -64,7 +64,7 @@ func RegisterSip(r Register) []byte {
 		r.Ramal, r.IpServer,
 		time.Now().Unix(), r.IpLocal,
 		r.Cseq,
-		r.Ramal, r.IpLocal, r.PortLocal,
+		r.Ramal, r.IpLocal, r.PortServer,
 		authHeader,
 	)
 
