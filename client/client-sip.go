@@ -155,6 +155,14 @@ func (c *Client) WatchEvents() {
 
 				continue
 			}
+
+			if strings.Contains(msg, "BYE") {
+				if c.cancelRtpListener != nil {
+					c.cancelRtpListener()
+				}
+				log.Println("[WatchEvents] Call ended (BYE received)")
+				continue
+			}
 		}
 	}()
 }
