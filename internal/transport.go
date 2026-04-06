@@ -8,6 +8,13 @@ import (
 	"time"
 )
 
+type InviteData struct {
+	IpReceived    string
+	RamalReceived string
+}
+
+type OnInviteReceived func(inviteData InviteData)
+
 type Register struct {
 	IpLocal   string
 	IpServer  string
@@ -156,4 +163,18 @@ func Build180Ringing(inviteMsg string) []byte {
 	)
 
 	return []byte(response)
+}
+
+func ParseInviteIP(inviteMsg string) (InviteData, error) {
+	re := regexp.MustCompile(`From:.*<sip:(?P<ramal>\d+)@(?P<ip>[\d.]+)`)
+	match := re.FindStringSubmatch(inviteMsg)
+
+	if match == nil {
+		return InviteData{}, fmt.Errorf("failed to parse Message from INVITE")
+	} else {
+		return InviteData{
+			RamalReceived: match[1],
+			IpReceived:    match[2],
+		}, nil
+	}
 }

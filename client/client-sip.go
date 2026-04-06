@@ -9,11 +9,12 @@ import (
 )
 
 type Client struct {
-	IpServer   string
-	PortServer int
-	PortLocal  int
-	Ramal      string
-	Password   string
+	IpServer         string
+	PortServer       int
+	PortLocal        int
+	Ramal            string
+	Password         string
+	OnInviteReceived func(inviteData internal.InviteData)
 }
 
 func RegisterSip(client Client) {
@@ -106,6 +107,13 @@ func (c *Client) WatchEvents() {
 					tcp.Send(ringingPacket)
 					log.Println("[WatchEvents] 180 Ringing send successfully!")
 				}
+				inviteData, err := internal.ParseInviteIP(msg)
+				if err != nil {
+					log.Printf("[WatchEvents] Error parsing INVITE IP: %v", err)
+					continue
+				}
+				c.OnInviteReceived(inviteData)
+
 				continue
 			}
 
