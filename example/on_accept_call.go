@@ -7,7 +7,7 @@ import (
 	"github.com/jvrs2812/go-sip/types"
 )
 
-func OnAudioReceivedLog(data types.AudioData) {
+func OnAudioReceivedLog(c *client.Client, data types.AudioData) {
 	log.Printf("Audio Received Bytes: %d, PayloadType: %d", len(data.Payload), data.PayloadType)
 }
 

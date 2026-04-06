@@ -38,7 +38,7 @@ func InitAudioDevice() {
 	player.Play()
 }
 
-func OnAudioReceived(data types.AudioData) {
+func OnAudioReceived(c *client.Client, data types.AudioData) {
 	var pcm []byte
 
 	switch data.PayloadType {

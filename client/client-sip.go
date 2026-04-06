@@ -17,7 +17,7 @@ type Client struct {
 	Ramal             string
 	Password          string
 	OnInviteReceived  func(c *Client, inviteData types.InviteData)
-	OnAudioReceived   func(data types.AudioData)
+	OnAudioReceived   func(c *Client, data types.AudioData)
 	cancelRtpListener context.CancelFunc
 }
 
