@@ -28,7 +28,17 @@ func StartRTPListener(ctx context.Context, port int, owner interface{}, callback
 		log.Printf("[RTP Error] Error to open Port %d: %v\n", port, err)
 		return
 	}
-	defer conn.Close()
+
+	sendMu.Lock()
+	rtpConn = conn
+	sendMu.Unlock()
+
+	defer func() {
+		conn.Close()
+		sendMu.Lock()
+		rtpConn = nil // Limpa ao fechar
+		sendMu.Unlock()
+	}()
 
 	log.Printf("[RTP] Listening in port %d.", port)
 
@@ -80,17 +90,16 @@ func StartRTPListener(ctx context.Context, port int, owner interface{}, callback
 
 func SendRTP(payload []byte, source types.AudioData) {
 	sendMu.Lock()
-	defer sendMu.Unlock()
-
 	if rtpConn == nil {
+		sendMu.Unlock()
 		return
 	}
-
-	log.Printf("[SendRTP] Send audio for %s", source.RemoteAddr)
+	conn := rtpConn
+	sendMu.Unlock()
 
 	remoteAddr, err := net.ResolveUDPAddr("udp", source.RemoteAddr)
 	if err != nil {
-		log.Printf("[RTP Send] Erro ao resolver endereço: %v", err)
+		log.Printf("[RTP Send] Error resolving address: %v", err)
 		return
 	}
 
@@ -103,9 +112,9 @@ func SendRTP(payload []byte, source types.AudioData) {
 
 	packet := append(header, payload...)
 
-	_, err = rtpConn.WriteTo(packet, remoteAddr)
+	_, err = conn.WriteTo(packet, remoteAddr)
 	if err != nil {
-		log.Printf("[RTP Send] Error to send: %v", err)
+		log.Printf("[RTP Send] Error sending RTP packet: %v", err)
 	}
 
 	outSeq++
