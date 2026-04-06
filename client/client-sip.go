@@ -85,7 +85,13 @@ func (c *Client) AcceptInvite(inviteData types.InviteData) {
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancelRtpListener = cancel
 
-	go internal.StartRTPListener(ctx, c.PortForRtp, c.OnAudioReceived)
+	go internal.StartRTPListener(ctx, c.PortForRtp, c, func(owner interface{}, data types.AudioData) {
+		if c.OnAudioReceived != nil {
+			if clientPtr, ok := owner.(*Client); ok {
+				c.OnAudioReceived(clientPtr, data)
+			}
+		}
+	})
 
 	log.Println("[Client] Accepting INVITE...")
 	tcp := internal.GetTCP(c.IpServer + ":" + strconv.Itoa(c.PortServer))

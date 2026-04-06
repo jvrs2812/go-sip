@@ -12,7 +12,7 @@ import (
 	"github.com/jvrs2812/go-sip/types"
 )
 
-type OnAudioReceived func(data types.AudioData)
+type OnAudioReceived func(client interface{}, data types.AudioData)
 
 var (
 	rtpConn      net.PacketConn
@@ -21,7 +21,7 @@ var (
 	sendMu       sync.Mutex
 )
 
-func StartRTPListener(ctx context.Context, port int, callback OnAudioReceived) {
+func StartRTPListener(ctx context.Context, port int, owner interface{}, callback OnAudioReceived) {
 	addr := fmt.Sprintf("0.0.0.0:%d", port)
 	conn, err := net.ListenPacket("udp", addr)
 	if err != nil {
@@ -71,7 +71,7 @@ func StartRTPListener(ctx context.Context, port int, callback OnAudioReceived) {
 				}
 
 				if callback != nil {
-					callback(data)
+					callback(owner, data)
 				}
 			}
 		}
