@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"log"
 	"strconv"
 	"strings"
@@ -9,13 +10,18 @@ import (
 )
 
 type Client struct {
-	IpServer         string
-	PortServer       int
-	PortLocal        int
-	Ramal            string
-	Password         string
-	OnInviteReceived func(inviteData internal.InviteData)
+	IpServer          string
+	PortServer        int
+	PortLocal         int
+	PortForRtp        int
+	Ramal             string
+	Password          string
+	OnInviteReceived  func(c *Client, inviteData internal.InviteData)
+	OnAudioReceived   func(data internal.AudioData)
+	cancelRtpListener context.CancelFunc
 }
+
+type OnInviteReceived func(c *Client, inviteData internal.InviteData)
 
 func RegisterSip(client Client) {
 
@@ -75,6 +81,23 @@ func (c *Client) HandleAuth(response401 string) {
 	tcp.Send(internal.RegisterSip(reg))
 }
 
+func (c *Client) AcceptInvite(inviteData internal.InviteData) {
+	ctx, cancel := context.WithCancel(context.Background())
+	c.cancelRtpListener = cancel
+
+	go internal.StartRTPListener(ctx, c.PortForRtp, c.OnAudioReceived)
+
+	log.Println("[Client] Accepting INVITE...")
+	tcp := internal.GetTCP(c.IpServer + ":" + strconv.Itoa(c.PortServer))
+
+	ipLocal, _ := internal.GetInterfaceIP()
+
+	accept := internal.Build200OKInvite(inviteData, ipLocal, c.PortForRtp)
+
+	tcp.Send(accept)
+
+}
+
 func (c *Client) WatchEvents() {
 	tcp := internal.GetTCP(c.IpServer + ":" + strconv.Itoa(c.PortServer))
 	tcp.StartDispatcher()
@@ -112,7 +135,10 @@ func (c *Client) WatchEvents() {
 					log.Printf("[WatchEvents] Error parsing INVITE IP: %v", err)
 					continue
 				}
-				c.OnInviteReceived(inviteData)
+
+				if c.OnInviteReceived != nil {
+					c.OnInviteReceived(c, inviteData)
+				}
 
 				continue
 			}

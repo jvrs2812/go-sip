@@ -7,8 +7,8 @@ import (
 	"github.com/jvrs2812/go-sip/internal"
 )
 
-func OnInviteReceived(inviteData internal.InviteData) {
-	log.Printf("Invite received from IP: %s with ramal: %s", inviteData.IpReceived, inviteData.RamalReceived)
+func onInviteReceivedExample(c *client.Client, inviteData internal.InviteData) {
+	log.Printf("Invite received from %s", inviteData.From)
 }
 
 func InviteReceive() {
@@ -18,7 +18,7 @@ func InviteReceive() {
 		PortLocal:        5060,
 		Ramal:            "1001",
 		Password:         "senha_segura",
-		OnInviteReceived: OnInviteReceived,
+		OnInviteReceived: onInviteReceivedExample,
 	}
 
 	c.WatchEvents()

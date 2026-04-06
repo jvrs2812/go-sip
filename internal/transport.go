@@ -9,11 +9,12 @@ import (
 )
 
 type InviteData struct {
-	IpReceived    string
-	RamalReceived string
+	Via    string
+	From   string
+	To     string
+	CallID string
+	Cseq   string
 }
-
-type OnInviteReceived func(inviteData InviteData)
 
 type Register struct {
 	IpLocal   string
@@ -166,15 +167,69 @@ func Build180Ringing(inviteMsg string) []byte {
 }
 
 func ParseInviteIP(inviteMsg string) (InviteData, error) {
-	re := regexp.MustCompile(`From:.*<sip:(?P<ramal>\d+)@(?P<ip>[\d.]+)`)
-	match := re.FindStringSubmatch(inviteMsg)
+	viaReg := regexp.MustCompile(`(?m)^Via: (.*)`)
+	fromReg := regexp.MustCompile(`(?m)^From: (.*)`)
+	toReg := regexp.MustCompile(`(?m)^To: (.*)`)
+	callIDReg := regexp.MustCompile(`(?m)^Call-ID: (.*)`)
+	cseqReg := regexp.MustCompile(`(?m)^CSeq: (.*)`)
 
-	if match == nil {
+	via := viaReg.FindStringSubmatch(inviteMsg)
+	from := fromReg.FindStringSubmatch(inviteMsg)
+	to := toReg.FindStringSubmatch(inviteMsg)
+	callID := callIDReg.FindStringSubmatch(inviteMsg)
+	cseq := cseqReg.FindStringSubmatch(inviteMsg)
+
+	if via == nil || from == nil || to == nil || callID == nil || cseq == nil {
 		return InviteData{}, fmt.Errorf("failed to parse Message from INVITE")
 	} else {
 		return InviteData{
-			RamalReceived: match[1],
-			IpReceived:    match[2],
+			From:   strings.TrimSpace(from[1]),
+			Via:    strings.TrimSpace(via[1]),
+			To:     strings.TrimSpace(to[1]),
+			CallID: strings.TrimSpace(callID[1]),
+			Cseq:   strings.TrimSpace(cseq[1]),
 		}, nil
 	}
+}
+
+func Build200OKInvite(inviteMsg InviteData, localIP string, rtpPort int) []byte {
+
+	sdp := fmt.Sprintf(
+		"v=0\r\n"+
+			"o=- %[1]d %[1]d IN IP4 %[2]s\r\n"+
+			"s=jvrs-go-sip\r\n"+
+			"c=IN IP4 %[2]s\r\n"+
+			"t=0 0\r\n"+
+			"m=audio %[3]d RTP/AVP 0 8 101\r\n"+
+			"a=rtpmap:0 PCMU/8000\r\n"+
+			"a=rtpmap:8 PCMA/8000\r\n"+
+			"a=rtpmap:101 telephone-event/8000\r\n"+
+			"a=fmtp:101 0-16\r\n"+
+			"a=sendrecv\r\n",
+		time.Now().Unix(), localIP, rtpPort,
+	)
+
+	response := fmt.Sprintf(
+		"SIP/2.0 200 OK\r\n"+
+			"Via: %s\r\n"+
+			"From: %s\r\n"+
+			"To: %s;tag=%d\r\n"+ // Tag é importante para identificar a sessão
+			"Call-ID: %s\r\n"+
+			"CSeq: %s\r\n"+
+			"Contact: <sip:asterisk@%s:5060;transport=tcp>\r\n"+
+			"Content-Type: application/sdp\r\n"+
+			"Content-Length: %d\r\n\r\n"+
+			"%s",
+		strings.TrimSpace(inviteMsg.Via),
+		strings.TrimSpace(inviteMsg.From),
+		strings.TrimSpace(inviteMsg.To),
+		time.Now().Unix(),
+		strings.TrimSpace(inviteMsg.CallID),
+		strings.TrimSpace(inviteMsg.Cseq),
+		localIP,
+		len(sdp),
+		sdp,
+	)
+
+	return []byte(response)
 }
