@@ -1,11 +1,17 @@
 package types
 
+import "github.com/jvrs2812/go-sip/sip"
+
 type InviteData struct {
-	Via    string
-	From   string
-	To     string
-	CallID string
-	Cseq   string
+	Via      string
+	From     string
+	To       string
+	CallID   string
+	Cseq     string
+	Contact  string
+	Body     []byte
+	Request  *sip.Message
+	LocalTag string
 }
 
 type AudioData struct {
@@ -16,4 +22,5 @@ type AudioData struct {
 	SSRC        uint32
 	Payload     []byte
 	RemoteAddr  string
+	Marker      bool
 }
