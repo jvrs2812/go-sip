@@ -2,11 +2,18 @@
 
 All notable changes to this project are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## v0.3.0-rc.3 — 2026-10-23
+
+### Fixed
+
+- Pin the Actions workflow linter to a release compatible with the supported Go 1.22.2 toolchain.
+
 ## v0.3.0-rc.2 — 2026-10-23
 
 ### Fixed
 
 - Synchronize the nested audio-player module dependencies with the expanded root module.
+- Document the failed candidate: `actionlint` v1.7.12 requires Go 1.25 while CI validates the module with Go 1.22.2.
 
 ## v0.3.0-rc.1 — 2026-10-23
 

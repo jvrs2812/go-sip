@@ -69,7 +69,7 @@ jobs:
         run: go vet ./...
 
       - name: Lint GitHub Actions workflows
-        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
 
       - name: Test release tag validation
         run: bash scripts/test-release-validation.sh
