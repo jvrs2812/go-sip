@@ -1,6 +1,6 @@
 module github.com/jvrs2812/go-sip
 
-go 1.22.2
+go 1.24.0
 
 require (
 	github.com/Bigous/iLBC-Go v1.0.0
@@ -10,7 +10,7 @@ require (
 	github.com/miekg/dns v1.1.62
 	github.com/pion/dtls/v3 v3.0.4
 	github.com/pion/ice/v4 v4.0.10
-	github.com/pion/rtcp v1.2.14
+	github.com/pion/rtcp v1.2.19
 	github.com/pion/srtp/v3 v3.0.4
 	github.com/pion/stun/v3 v3.0.0
 	github.com/zaf/g711 v1.4.0
