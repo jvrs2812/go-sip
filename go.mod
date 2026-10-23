@@ -19,7 +19,7 @@ require (
 
 require (
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/pion/logging v0.2.3
+	github.com/pion/logging v0.2.4
 	github.com/pion/mdns/v2 v2.0.7 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtp v1.8.9 // indirect
