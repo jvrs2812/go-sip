@@ -1,530 +1,179 @@
 # go-sip
 
-A comprehensive Go module for SIP (Session Initiation Protocol) implementation with Digest authentication support and TCP connection management.
+`go-sip` is a Go library for building SIP user agents. The current development version provides typed SIP parsing, TCP/UDP/TLS/WebSocket transports, REGISTER with Digest or injected OAuth authentication, inbound and outbound calls, SDP negotiation, per-call RTP sessions, ICE helpers, and DTLS-SRTP packet protection.
 
-## Overview
+The public API is still evolving in the `v0` series. See [PLANO_IMPLEMENTACAO.md](PLANO_IMPLEMENTACAO.md) for the complete implementation plan and acceptance criteria.
 
-go-sip is a production-ready library that provides a complete implementation of SIP 2.0 (RFC 3261) in Go, focusing on registration operations (REGISTER method) with secure authentication. Designed with simplicity, performance, and ease of integration in mind for VoIP applications.
+## Requirements
 
-## Features
+- Go 1.22.2 or newer
+- TCP, UDP, TLS, WebSocket, or secure WebSocket connectivity to a SIP server
+- An ALSA development package on Linux only when building the optional audio-player example
+- Native development packages only when enabling the optional `gsm` or `opus` build tags
 
-### Core SIP Protocol
-- **SIP Registration (REGISTER)**: Full implementation of the REGISTER method as defined in RFC 3261
-- **Digest Authentication**: MD5 Digest authentication support with automatic challenge-response handling (RFC 2617)
-- **Persistent TCP Connections**: Automatic connection management with intelligent retry mechanisms
-- **Automatic IP Detection**: Automatic detection and configuration of local IP for registration
-
-### Call Handling
-- **INVITE Reception**: Receive and process incoming SIP INVITE requests
-- **Call Accept**: Accept incoming calls with 180 Ringing and 200 OK responses
-- **Call Termination (BYE)**: Handle call termination requests
-- **OPTIONS Keep-alive**: Automatic response to OPTIONS requests for keep-alive monitoring
-
-### Audio & RTP
-- **RTP Audio Reception**: Receive audio streamed over RTP (Real-time Transport Protocol)
-- **Audio Decoding**: Support for G.711 codec decoding (μ-Law and A-Law)
-- **Audio Playback**: Real-time audio playback with cross-platform support via oto/v2
-- **Audio Callbacks**: Custom callback handlers for received audio data
-
-### Developer Experience
-- **Event Dispatcher**: Watch and handle all incoming SIP messages with callback-based architecture
-- **Custom Callbacks**: Register callbacks for INVITE reception and audio data handling
-- **Simple API**: Clear and intuitive interface for SIP server interactions
-- **Thread-Safe**: Concurrent-safe implementation with mutex synchronization
-- **Comprehensive Logging**: Detailed logging for debugging and monitoring
-
-## Getting Started
-
-### Requirements
-
-- Go 1.22.2 or later
-- Linux, macOS, or Windows with TCP support
-
-### Installation
+## Install
 
 ```bash
-go get github.com/jvrs2812/go-sip
+go get github.com/jvrs2812/go-sip@latest
 ```
 
-Or clone directly:
-
-```bash
-git clone https://github.com/jvrs2812/go-sip.git
-cd go-sip
-go mod tidy
-```
-
-## Quick Start
-
-### Basic Registration
+## Register a client
 
 ```go
-c := client.Client{
-    IpServer:   "sip.example.com",
-    PortServer: 5060,
-    Ramal:      "1001",
-    Password:   "secure_password",
-}
+package main
 
-client.RegisterSip(c)
-```
+import (
+    "context"
+    "log"
 
-### Receiving Calls with Audio
+    "github.com/jvrs2812/go-sip/client"
+)
 
-```go
-func handleIncomingCall(c *client.Client, inviteData internal.InviteData) {
-    log.Printf("Call from: %s", inviteData.From)
-    c.AcceptInvite(inviteData)
-}
+func main() {
+    sipClient, err := client.NewClient(client.Config{
+        ServerHost: "sip.example.com",
+        ServerPort: 5060,
+        Username:   "1001",
+        Password:   "secret",
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
 
-func handleAudio(data internal.AudioData) {
-    // Process received audio data
-    log.Printf("Audio received - Bytes: %d, PayloadType: %d", 
-        len(data.Payload), data.PayloadType)
-}
+    defer sipClient.Close()
 
-c := client.Client{
-    IpServer:         "sip.example.com",
-    PortServer:       5060,
-    PortForRtp:       6000,           // RTP port for audio
-    Ramal:            "1001",
-    Password:         "secure_password",
-    OnInviteReceived: handleIncomingCall,
-    OnAudioReceived:  handleAudio,
-}
-
-c.WatchEvents()
-client.RegisterSip(c)
-```
-
-### Real-time Audio Playback
-
-For complete working examples including real-time audio playback with G.711 decoding, refer to the [example/](example/) directory.
-
-### SIP Protocol
-
-Implementation based on:
-- **RFC 3261**: SIP: Session Initiation Protocol
-- **RFC 2617**: HTTP Authentication: Basic and Digest Access Authentication
-
-### REGISTER Method
-
-The module implements the REGISTER method with the following mandatory headers:
-
-```
-REGISTER sip:server.com SIP/2.0
-Via: SIP/2.0/TCP local.ip:5060;branch=z9hG4bK[random]
-From: <sip:1001@server.com>;tag=[random]
-To: <sip:1001@server.com>
-Call-ID: [random]@local.ip
-CSeq: 1 REGISTER
-Contact: <sip:1001@local.ip;transport=tcp>
-Authorization: Digest [authentication-info]
-Max-Forwards: 70
-Expires: 3600
-Content-Length: 0
-```
-
-### Digest Authentication
-
-When the server responds with 401 Unauthorized:
-
-1. Client receives Nonce, Realm, and Opaque values
-2. Calculates response: MD5(username:realm:password:method:uri:nonce)
-3. Resends REGISTER with Authorization header
-4. Server validates and accepts registration
-
-### Connection Handling
-
-- **Connection Attempts**: 3 (with 1s, 2s, 3s backoff)
-- **Expiration**: 3600 seconds (1 hour)
-- **Auto-Reconnect**: Automatic reconnection on send failure
-
-## API Documentation
-
-### Client Structure
-
-```go
-type Client struct {
-    // SIP Server Configuration
-    IpServer          string                                    // SIP server IP address
-    PortServer        int                                       // SIP server port
-    PortForRtp        int                                       // Local RTP port for audio
-    
-    // SIP Credentials
-    Ramal             string                                    // Extension/username (ramal)
-    Password          string                                    // Registration password
-    
-    // Event Handlers
-    OnInviteReceived  func(c *Client, inviteData InviteData)  // Called when INVITE is received
-    OnAudioReceived   func(data AudioData)                     // Called when audio is received
-    
-    // Internal
-    cancelRtpListener context.CancelFunc                       // Used to cancel RTP listener
+    if err := sipClient.Register(context.Background()); err != nil {
+        log.Fatal(err)
+    }
 }
 ```
 
-### Key Methods
+`Register` handles 401 and 407 challenges, MD5 and SHA-256 Digest, `qop=auth`, `423 Min-Expires`, renewal, connection recovery, and explicit removal through `Unregister`. OAuth challenges use an application-provided `auth.TokenProvider`; the library does not store client secrets or fetch tokens on its own. Give calls a context with a deadline in production.
 
-#### RegisterSip(client Client)
-
-Registers the client with the SIP server using REGISTER method with Digest authentication.
+## Receive a call
 
 ```go
-client.RegisterSip(c)
-```
+sipClient.OnInviteReceived = func(current *client.Client, invite types.InviteData) {
+    log.Printf("call from %s", invite.From)
+    current.AcceptInvite(invite)
+}
 
-#### (c *Client) WatchEvents()
+sipClient.OnAudioReceived = func(_ *client.Client, packet types.AudioData) {
+    log.Printf("RTP payload=%d bytes=%d", packet.PayloadType, len(packet.Payload))
+}
 
-Starts an event dispatcher that listens for incoming SIP messages and triggers appropriate callbacks.
-
-```go
-c.WatchEvents()
-```
-
-#### (c *Client) AcceptInvite(inviteData InviteData)
-
-Accepts an incoming call by sending 200 OK response and starting RTP listener for audio.
-
-```go
-func onInviteReceived(c *client.Client, inviteData internal.InviteData) {
-    c.AcceptInvite(inviteData)
+if err := sipClient.Register(ctx); err != nil {
+    log.Fatal(err)
 }
 ```
 
-#### (c *Client) HandleAuth(response401 string)
+The client sends `180 Ringing`, negotiates G.722, PCMU, PCMA, or iLBC from the remote SDP offer, opens the RTP socket before sending `200 OK`, replies to BYE, and releases media resources when the call ends.
 
-Handles 401 Unauthorized response by extracting authentication challenge and resending REGISTER with Digest credentials.
-
-```go
-c.HandleAuth(response401)
-```
-
-### Data Structures
-
-#### InviteData
-
-Contains information extracted from an incoming INVITE request.
+## Place a call
 
 ```go
-type InviteData struct {
-    From       string  // Caller's SIP URI
-    To         string  // Callee's SIP URI
-    CallID     string  // Session call ID
-    // ... other fields
+call, err := sipClient.Invite(ctx, "sip:2002@sip.example.com")
+if err != nil {
+    log.Fatal(err)
+}
+
+defer call.Hangup(context.Background())
+
+if err := call.SendAudio(ctx, encodedG711Payload, false); err != nil {
+    log.Fatal(err)
 }
 ```
 
-#### AudioData
-
-Contains audio packet information received over RTP.
-
-```go
-type AudioData struct {
-    Version     int      // RTP version
-    PayloadType uint8    // Audio codec payload type (0=ULAW, 8=ALAW, etc.)
-    SequenceNum uint16   // RTP sequence number
-    Timestamp   uint32   // RTP timestamp
-    SSRC        uint32   // Synchronization source identifier
-    Payload     []byte   // Audio data
-    RemoteAddr  string   // Remote address (IP:port)
-}
-```
-
-## Error Handling
-
-The module employs standard Go error handling patterns:
-- **panic()**: Only for unrecoverable critical errors (e.g., unable to get local IP)
-- **error returns**: For recoverable operations (e.g., TCP connection failures)
-- **Structured Logging**: Detailed logging via the standard log package for debugging
+Outbound calls advertise G.722, PCMU, PCMA, and both iLBC frame modes, process the SDP answer, send ACK, and create an isolated RTP session.
 
 ## Examples
 
-Complete working examples are available in the [example/](example/) directory:
+- `go run ./example/register`: register and unregister cleanly on shutdown.
+- `go run ./example/receive`: accept calls and log RTP packets.
+- `cd example/player && go run .`: accept a call and play G.711 audio.
 
-- `example/register.go`: Basic SIP registration
-- `example/watch_events.go`: Event watching and handling
-- `example/on_invite_receive.go`: Handle incoming INVITE requests
-- `example/on_accept_call.go`: Accept calls and receive audio
-- `example/on_call_player.go`: Full audio playback with G.711 decoding
+The player is a nested Go module so native audio dependencies do not affect normal builds. On Debian or Ubuntu, install them with:
 
-## SIP Protocol Implementation Status
-
-### Methods
-
-- [x] REGISTER - Registration method
-- [ ] INVITE - Session initiation
-- [ ] ACK - Acknowledgment
-- [ ] BYE - Session termination
-- [ ] CANCEL - Request cancellation
-- [ ] OPTIONS - Capability query
-- [ ] PRACK - Provisional response acknowledgment
-- [ ] SUBSCRIBE - Event subscription
-- [ ] NOTIFY - Event notification
-- [ ] PUBLISH - Event state publication
-- [ ] INFO - Session information
-- [ ] REFER - Call transfer
-- [ ] MESSAGE - Instant messaging
-
-### Protocol Features
-
-#### Implemented
-
-- [x] RFC 3261 - Core SIP protocol
-- [x] RFC 2617 - Digest authentication (MD5)
-- [x] TCP transport
-- [x] Via header generation
-- [x] CSeq management
-- [x] Call-ID generation
-- [x] Contact header
-- [x] Expires header (registration)
-- [x] Authorization header (Digest)
-- [x] Max-Forwards header
-
-#### Planned
-
-- [ ] RFC 3263 - SIP DNS procedures
-- [ ] RFC 3265 - Event notification framework
-- [ ] RFC 4169 - SIP extensions for emergency calling
-- [ ] RFC 5939 - SIPS URI scheme
-- [ ] RFC 7044 - Update to RFC 3960
-- [ ] UDP transport
-- [ ] DTLS encryption
-- [ ] TLS encryption
-- [ ] IPv6 support
-- [ ] Outbound proxy support
-- [ ] Route header processing
-- [ ] Record-Route header support
-- [ ] Dialog INVITE/ACK with reliable provisional responses
-- [ ] SHA-256 authentication
-- [ ] SCTP transport
-- [ ] WebSocket transport
-
-### Authentication
-
-- [x] Digest MD5
-- [ ] Digest SHA-256
-- [ ] SIP Identity
-- [ ] OAuth 2.0
-
-### Network
-
-- [x] TCP connection management
-- [x] Connection pooling
-- [x] Automatic reconnection
-- [x] Exponential backoff retry
-- [ ] UDP transport
-- [ ] DTLS/TLS encryption
-- [ ] IPv6
-- [ ] SRV record resolution
-- [ ] Failover support
-
-## Performance Characteristics
-
-- **Connection Time**: ~100-500ms (first connection with retry)
-- **Send Latency**: <10ms (established connection)
-- **Memory Overhead**: Minimal (~1KB per active connection)
-- **Thread Safety**: 100% concurrent-safe (sync.Mutex)
-
-## Usage Scenarios
-
-### Scenario 1: SIP PBX Integration
-
-Use go-sip to integrate your application with an existing SIP PBX system:
-
-```go
-c := client.Client{
-    IpServer:         "pbx.internal.com",
-    PortServer:       5060,
-    Ramal:            "2001",
-    Password:         "pbx_password",
-    OnInviteReceived: handleIncomingCall,
-}
-
-c.WatchEvents()
-client.RegisterSip(c)
+```bash
+sudo apt-get install libasound2-dev pkg-config
 ```
 
-### Scenario 2: VoIP Gateway
+All examples read `SIP_HOST`, `SIP_USERNAME`, `SIP_PASSWORD`, and optionally `SIP_ADVERTISED_ADDRESS`. Run an example with `-help` for its flags.
 
-Create a VoIP gateway that accepts calls and routes audio:
+## Current implementation status
 
-```go
-c := client.Client{
-    IpServer:         "sip.provider.com",
-    PortServer:       5060,
-    PortForRtp:       6000,
-    Ramal:            "1234567890",
-    Password:         "gateway_pwd",
-    OnInviteReceived: routeCallToVoiceApp,
-    OnAudioReceived:  processAudioStream,
-}
+| Area | Status | Notes |
+| --- | --- | --- |
+| SIP parser and serializer | Implemented and tested | Typed request/response and SIP/SIPS URI models, IPv6, compact headers, framing limits, fragmented/concatenated messages, binary bodies and fuzz target |
+| TCP transport | Implemented and tested | One reader per connection, complete writes, context deadlines, idempotent close |
+| UDP transport | Implemented and tested | Retransmission with exponential timers, response correlation, and server-response deduplication |
+| TLS and SIPS | Implemented and tested | TLS 1.2 minimum, certificate-chain and hostname validation by default |
+| WebSocket and WSS | Implemented and tested | Required `sip` subprotocol, frame limits, ping keep-alive, rejection paths, and TLS policy for WSS |
+| REGISTER | Implemented and tested | Digest/OAuth challenge, renewal, unregister, 423 handling, reconnect and registration restoration |
+| Digest MD5 and SHA-256 | Implemented and tested | `auth` and `auth-int`; legacy no-qop challenges |
+| Inbound INVITE / ACK / BYE / CANCEL | Implemented, interoperability pending | Single-dialog flow with G.711 SDP negotiation |
+| Outbound INVITE / ACK / BYE | Implemented and tested | G.722/PCMU/PCMA/iLBC offer and answer; fixed Asterisk 22.11.0 dialog integration |
+| OPTIONS | Implemented | Answers with currently recognized methods and capabilities |
+| RTP and RTCP | Implemented and tested | Per-call RTP state, CSRC/extensions/padding, jitter buffer, reception metrics, RTCP receiver reports |
+| PCMU and PCMA | Implemented | Encoding and decoding through `media.PCMU` and `media.PCMA` |
+| G.722 | Implemented and tested | Pure-Go stateful 64 kbit/s encoder/decoder and static RTP payload 9 negotiation |
+| iLBC | Implemented and tested | Pure-Go 20 ms/30 ms encode/decode, packet-loss concealment, and mode-aware SDP negotiation |
+| PRACK and reliable provisional responses | Implemented, interoperability pending | `100rel`, `RSeq`, `RAck`, and provisional callback paths are covered locally |
+| SUBSCRIBE, NOTIFY, PUBLISH, presence | Implemented and tested | Stateful refresh, expiry, cancellation/removal, dialog validation, entity tags, and PIDF |
+| MESSAGE, INFO, REFER | Implemented and tested | MIME and size validation, DTMF INFO, blind/attended transfer, and refer NOTIFY tracking |
+| DNS NAPTR/SRV and failover | Implemented and tested | Injected NAPTR/SRV/A/AAAA resolver, RFC 2782 weighted ordering, TTL cache and total failover deadline |
+| ICE, STUN and TURN | Implemented and tested locally | Candidate gathering, restart, authenticated relay-only TURN allocation and selected-pair traffic; external NAT interoperability remains |
+| DTLS-SRTP | Implemented and tested locally | Ephemeral identity, SDP fingerprint validation, key export, bidirectional SRTP; call-level interoperability remains |
+| GSM-FR, Opus, and SILK | Optional and tested | Independent CGO backends behind matching build tags; each codec is advertised only when compiled in |
+| SIP Identity | Experimental and tested | ES256 PASSporT signing/verification with an injected certificate resolver |
+| OAuth 2.0 | Experimental and tested | Injected token provider and Bearer challenge handling; token acquisition remains application-owned |
+| RFC 5939 / RFC 7044 | Implemented and tested | SDP capability selection and History-Info parsing, serialization, and privacy policy |
+| Conference bridge | Implemented and tested | Bounded participants, PCM mix-minus, gain, mute and clipping |
+| SCTP | Experimental and tested on Linux | Kernel SCTP backend on Linux amd64/arm64; other platforms return an explicit unsupported error |
+| AKA v2 | Experimental and tested | Injected SIM/ISIM provider, RFC 4169 password/session-key derivation, challenge preference and vectors |
+| Emergency profiles | Implemented and tested | RFC 5031 service URNs, priority, routing and location headers restricted to laboratory destinations |
 
-c.WatchEvents()
-client.RegisterSip(c)
+“Implemented” means the code exists and has focused automated tests. “Integration pending” means protocol interoperability still needs validation against external SIP peers before the feature is considered stable.
+
+## Packages
+
+- `sip`: typed messages, SIP/SIPS URIs, name-address values, headers, parsing, and serialization.
+- `auth`: Digest, OAuth Bearer, and provider-based AKAv2 authorization support.
+- `transport`: TCP, UDP, TLS, WebSocket, WSS, and an experimental Linux SCTP signaling transport.
+- `sdp`: SDP parsing, serialization, audio negotiation, ICE/DTLS attributes, and capability selection.
+- `media`: RTP/RTCP, G.711, G.722, iLBC, optional GSM-FR/Opus/SILK, DTMF, jitter buffering, DTLS-SRTP, and conference mixing.
+- `nat`: ICE candidate gathering and connectivity using STUN or TURN servers.
+- `identity`: experimental ES256 SIP Identity signing and verification.
+- `client`: registration, request dispatch, dialogs, DNS failover, separate bind/advertised addresses, and the compatibility API.
+- `types`: callback data retained for compatibility with earlier `v0.2` releases.
+
+## Development
+
+```bash
+go test ./...
+go test -race ./...
+go vet ./...
 ```
 
-### Scenario 3: Call Center Agent
+The player is validated separately because it needs native audio headers:
 
-Implement a software phone (softphone) for call center applications:
-
-```go
-c := client.Client{
-    IpServer:         "sip.callcenter.com",
-    PortServer:       5060,
-    PortForRtp:       8000,
-    Ramal:            "agent_001",
-    Password:         "agent_password",
-    OnInviteReceived: alertAgentOfCall,
-    OnAudioReceived:  playAudioToAgent,
-}
-
-c.WatchEvents()
-client.RegisterSip(c)
+```bash
+cd example/player
+go test ./...
 ```
 
-## Troubleshooting
+Optional native codec builds and their distribution terms are documented in [docs/codecs.md](docs/codecs.md).
+The separation between signaling TLS, ICE/TURN, and DTLS-SRTP is documented in [docs/security.md](docs/security.md).
+Examples for calls, presence, messaging, transfer, ICE, protected media, and emergency laboratory profiles are in [docs/api-examples.md](docs/api-examples.md).
 
-### Registration Fails Silently
+Pull requests and pushes to `main` run the same checks on Linux, Windows, macOS, Go 1.22.2, and the current stable Go release. The weekly integration workflow adds prolonged fuzzing, repeated concurrent transactions, reconnect stress, lifecycle stress, and goroutine-leak detection. Pushing a semantic-version tag runs validation, fixed-version Asterisk interoperability, and local TURN/DTLS-SRTP scenarios before creating a GitHub Release.
 
-**Problem**: No error visible, but client doesn't register.
+## Versioning and releases
 
-**Solution**:
-1. Check network connectivity to SIP server: `ping <IpServer>`
-2. Verify SIP server port is accessible: `nc -zv <IpServer> <PortServer>`
-3. Check firewall rules allow outbound TCP to SIP server
-4. Enable detailed logging to see what's happening
-5. Verify `Ramal` (username) and `Password` are correct
+The module follows semantic versioning. Tags must use `vX.Y.Z` or a valid prerelease such as `v0.3.0-rc.1`. Do not move published tags; release a new version instead.
 
-### 401 Unauthorized Loops
+See [docs/releasing.md](docs/releasing.md) for the release process and [CHANGELOG.md](CHANGELOG.md) for notable changes.
 
-**Problem**: Client keeps receiving 401 Unauthorized responses.
+## License
 
-**Solution**:
-1. Verify password is correctly set in Client struct
-2. Check SIP server log for authentication failures
-3. Some SIP servers require specific digest algorithm (ensure MD5 is supported)
-4. Check that `Ramal` matches the username configured on SIP server
-
-### No Audio Received
-
-**Problem**: INVITE accepted but no audio arriving.
-
-**Solution**:
-1. Verify `PortForRtp` is not in use by another process
-2. Check firewall allows incoming UDP on RTP port
-3. Verify remote caller is sending audio to correct IP:port
-4. Check RTP payload type is supported (0=ULAW, 8=ALAW)
-5. Enable detailed logging to debug RTP reception
-
-### Connection Timeouts
-
-**Problem**: Frequent "connection refused" or timeout errors.
-
-**Solution**:
-1. Verify TCP connection can be established (test with `telnet`)
-2. Check if SIP server has connection limits (try different local port)
-3. Increase timeout values if network is slow
-4. Check system firewall and NAT traversal requirements
-5. Consider implementing SIP outbound proxy support for NAT scenarios
-
-## Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## Supported Codecs
-
-### Audio Codecs
-
-- **G.711 μ-Law (Payload Type 0)**: Full support via `github.com/zaf/g711`
-- **G.711 A-Law (Payload Type 8)**: Full support via `github.com/zaf/g711`
-
-### Future Support
-
-- G.722 - 16kHz wideband codec
-- GSM-FR - Full rate codec
-- OPUS - Modern internet codec
-- iLBC - Internet Low Bitrate Codec
-
-## Dependencies
-
-### Direct Dependencies
-
-- **[github.com/zaf/g711](https://github.com/zaf/g711)** (v1.4.0): G.711 audio codec encoding/decoding
-
-### Optional Dependencies (for Audio Playback Examples)
-
-- **[github.com/hajimehoshi/oto/v2](https://github.com/hajimehoshi/oto)** (v2.4.3): Cross-platform audio output
-- **[github.com/ebitengine/purego](https://github.com/ebitengine/purego)** (v0.4.1): Pure Go bindings
-- **[golang.org/x/sys](https://golang.org/x/sys)** (v0.7.0): System-level Go APIs
-
-## Support
-
-For bug reports or feature requests, please open an issue on GitHub:
-- [github.com/jvrs2812/go-sip/issues](https://github.com/jvrs2812/go-sip/issues)
-
-## Recent Features
-
-### Latest Additions (v1.0+)
-
-- ✨ Event dispatcher (`WatchEvents()`) for real-time monitoring of incoming SIP messages
-- 🎙️ RTP audio reception with payload type detection
-- 🔊 Audio callback system for real-time audio processing
-- ✅ Enhanced INVITE handling with 180 Ringing and 200 OK responses
-- 🛑 BYE message handling for proper call termination
-- 📱 Keep-alive support via OPTIONS response handling
-- 🔐 Full Digest MD5 authentication with challenge-response mechanism
-- 🎯 Event-driven callback pattern for better application integration
-- 📊 Detailed structured logging for debugging and monitoring
-- 🚀 Context-based cancellation for clean resource cleanup
-
-### Version History
-
-- **v1.0.0**: Core SIP registration, event watching, and audio reception
-  - SIP REGISTER with Digest authentication
-  - Event dispatcher with multiple callback handlers
-  - RTP audio reception and callbacks
-  - G.711 audio decoding support
-  - Full INVITE/BYE call flow support
-
-## Future Roadmap
-
-### Phase 2 (Planned)
-
-- **Outbound INVITE**: Support for initiating calls
-- **UDP Transport**: Lower latency alternative to TCP
-- **SRV Records**: Automatic SIP server discovery
-- **NAT Traversal**: ICE, STUN, TURN support
-- **DTMF Events**: DTMF tone detection and transmission
-- **Call Hold/Resume**: Call state management
-
-### Phase 3 (Planned)
-
-- **TLS Encryption**: Secure SIP connections
-- **SUBSCRIBE/NOTIFY**: Event subscription framework
-- **Presence**: User availability and status
-- **Message Sessions**: SIP MESSAGE support
-- **Conference Bridges**: Multi-party call support
-
-### Future Codec Support
-
-- **G.722**: 16kHz wideband codec
-- **Opus**: Modern internet codec
-- **SILK**: Skype's proprietary codec
-- **iLBC**: Internet Low Bitrate Codec
-
-## References
-
-- [RFC 3261 - SIP: Session Initiation Protocol](https://tools.ietf.org/html/rfc3261)
-- [RFC 2617 - HTTP Authentication](https://tools.ietf.org/html/rfc2617)
-- [Go Language Documentation](https://golang.org/doc/)
-
----
-
-**Author**: João Victor Ramos de Sousa
+This project is licensed under the [MIT License](LICENSE). It permits commercial and private use, modification, distribution, and sublicensing, subject to preserving the copyright and license notices.
