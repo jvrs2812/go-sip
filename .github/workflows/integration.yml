@@ -1,0 +1,137 @@
+name: Integration
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref or commit to validate
+        required: false
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref or commit to validate
+        required: false
+        type: string
+        default: ""
+  schedule:
+    - cron: "41 6 * * 2"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration-${{ inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  signaling-and-media:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: stable
+          cache-dependency-path: go.sum
+
+      - name: Run signaling integration scenarios
+        run: |
+          go test -race -count=1 -timeout=10m ./client ./transport ./transaction
+
+      - name: Run NAT and protected-media scenarios
+        run: |
+          go test -race -count=1 -timeout=10m ./nat ./media
+
+      - name: Run repeated lifecycle stress
+        run: |
+          go test -race -count=20 -timeout=10m ./client -run 'Test(RegisterAuthenticatesAndUnregisters|OutboundEarlyMediaBeforeFinalResponse|SubscriptionLifecycle|PublicationLifecycleAndVersioning|TransferTracksReferNotifications)$'
+
+  asterisk-22:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: stable
+          cache-dependency-path: go.sum
+
+      - name: Start fixed Asterisk PBX
+        shell: bash
+        run: |
+          docker pull ghcr.io/andrius/asterisk:22.11.0_debian-trixie
+          docker create --name go-sip-asterisk --publish 15060:5060/udp ghcr.io/andrius/asterisk:22.11.0_debian-trixie
+          docker cp integration/asterisk/pjsip.conf go-sip-asterisk:/etc/asterisk/pjsip.conf
+          docker cp integration/asterisk/extensions.conf go-sip-asterisk:/etc/asterisk/extensions.conf
+          docker start go-sip-asterisk
+
+          for attempt in {1..30}; do
+            if docker exec go-sip-asterisk asterisk -rx 'core waitfullybooted' >/dev/null 2>&1; then
+              exit 0
+            fi
+
+            sleep 1
+          done
+
+          docker logs go-sip-asterisk
+          exit 1
+
+      - name: Test registration and calls against Asterisk 22.11.0
+        run: go test -race -count=1 -tags integration -timeout=2m ./integration
+
+      - name: Capture Asterisk diagnostics
+        if: always()
+        run: |
+          docker exec go-sip-asterisk asterisk -rx 'pjsip show endpoints' || true
+          docker logs go-sip-asterisk
+
+      - name: Stop Asterisk
+        if: always()
+        run: docker rm --force go-sip-asterisk || true
+
+  extended-stability:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: stable
+          cache-dependency-path: go.sum
+
+      - name: Fuzz the SIP parser for five minutes
+        run: go test -run='^$' -fuzz=FuzzParse -fuzztime=5m ./sip
+
+      - name: Stress concurrent transaction correlation
+        run: go test -race -count=100 -timeout=15m ./client -run '^TestConcurrentTransactionsRemainCorrelated$'
+
+      - name: Stress reconnect and stateful lifecycles
+        run: |
+          go test -race -count=50 -timeout=15m ./client -run 'Test(RegisterReconnectsAndRestoresRegistration|SubscriptionLifecycle|PublicationLifecycleAndVersioning|TransferTracksReferNotifications)$'
+
+      - name: Verify owned goroutines are released
+        run: go test -race -count=1 -timeout=10m ./client ./transport ./nat ./media
