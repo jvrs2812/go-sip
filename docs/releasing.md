@@ -1,6 +1,6 @@
 # Releasing go-sip
 
-Git tags publish Go module versions. GitHub Releases add release notes and are created by `.github/workflows/release.yml` only after validation passes.
+Git tags trigger the `publish-module` job in `.github/workflows/release.yml`. It requests the version from the public Go proxy and compiles it from a clean external module. Only then does `publish-release` create the GitHub Release and its notes.
 
 ## Prepare a release
 
@@ -15,7 +15,7 @@ git tag -a v0.3.0-rc.1 -m "v0.3.0-rc.1"
 git push origin v0.3.0-rc.1
 ```
 
-The workflow resolves the tag to a commit, runs the reusable validation workflow against that commit, creates release notes, marks prereleases correctly, and verifies that the Go proxy can resolve the module version.
+The workflow resolves the tag to a commit, runs the reusable validation workflow against that commit, publishes and validates the Go module through the public proxy, then creates release notes and marks prereleases correctly.
 
 ## Existing tags
 

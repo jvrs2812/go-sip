@@ -166,7 +166,7 @@ Optional native codec builds and their distribution terms are documented in [doc
 The separation between signaling TLS, ICE/TURN, and DTLS-SRTP is documented in [docs/security.md](docs/security.md).
 Examples for calls, presence, messaging, transfer, ICE, protected media, and emergency laboratory profiles are in [docs/api-examples.md](docs/api-examples.md).
 
-Pull requests and pushes to `main` run the same checks on Linux, Windows, macOS, Go 1.22.2, and the current stable Go release. The weekly integration workflow adds prolonged fuzzing, repeated concurrent transactions, reconnect stress, lifecycle stress, and goroutine-leak detection. Pushing a semantic-version tag runs validation, fixed-version Asterisk interoperability, and local TURN/DTLS-SRTP scenarios before creating a GitHub Release.
+Pull requests and pushes to `main` run the same checks on Linux, Windows, macOS, Go 1.22.2, and the current stable Go release. The weekly integration workflow adds prolonged fuzzing, repeated concurrent transactions, reconnect stress, lifecycle stress, and goroutine-leak detection. Pushing a semantic-version tag runs validation, fixed-version Asterisk interoperability, local TURN/DTLS-SRTP scenarios, automatic Go module publication through the public proxy, and an external-consumer smoke test before creating a GitHub Release.
 
 ## Versioning and releases
 

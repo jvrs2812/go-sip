@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## v0.3.0-rc.5 — 2026-10-23
+
+### Changed
+
+- Publish each tagged Go module through an explicit GitHub Actions job before creating its GitHub Release.
+- Remove the completed implementation plan from the project tree.
+
 ## v0.3.0-rc.4 — 2026-10-23
 
 ### Fixed

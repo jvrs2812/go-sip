@@ -58,15 +58,13 @@ jobs:
     with:
       ref: ${{ needs.resolve.outputs.commit }}
 
-  publish:
+  publish-module:
     needs:
       - resolve
       - validate
       - integration
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    permissions:
-      contents: write
 
     steps:
       - name: Check out tagged source
@@ -76,7 +74,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Confirm immutable tag association
+      - name: Confirm immutable package tag association
         env:
           RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
           RESOLVED_COMMIT: ${{ needs.resolve.outputs.commit }}
@@ -93,6 +91,73 @@ jobs:
             echo "Checkout does not match resolved tag commit." >&2
             exit 1
           fi
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Publish module version to the Go proxy
+        env:
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+        shell: bash
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            if GOPROXY=https://proxy.golang.org go list -m "github.com/jvrs2812/go-sip@$RELEASE_TAG"; then
+              exit 0
+            fi
+
+            echo "Module proxy has not indexed $RELEASE_TAG yet (attempt $attempt/6)."
+            sleep 10
+          done
+
+          exit 1
+
+      - name: Verify published module from an external consumer
+        env:
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+        shell: bash
+        run: |
+          consumer_directory="$(mktemp -d)"
+          cd "$consumer_directory"
+
+          go mod init example.test/go-sip-release-smoke
+          GOPROXY=https://proxy.golang.org go get "github.com/jvrs2812/go-sip@$RELEASE_TAG"
+
+          cat > main.go <<'EOF'
+          package main
+
+          import (
+              "fmt"
+
+              "github.com/jvrs2812/go-sip/sip"
+          )
+
+          func main() {
+              message := sip.NewRequest("OPTIONS", "sip:service@example.test")
+              fmt.Println(message.Method)
+          }
+          EOF
+
+          go run . | grep -Fx OPTIONS
+
+  publish-release:
+    needs:
+      - resolve
+      - publish-module
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.resolve.outputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Create GitHub release
         env:
@@ -120,53 +185,3 @@ jobs:
           fi
 
           gh release create "$RELEASE_TAG" "${release_flags[@]}"
-
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
-        with:
-          go-version: stable
-          cache: false
-
-      - name: Verify module publication
-        env:
-          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
-        shell: bash
-        run: |
-          for attempt in 1 2 3 4 5 6; do
-            if GOPROXY=https://proxy.golang.org go list -m "github.com/jvrs2812/go-sip@$RELEASE_TAG"; then
-              exit 0
-            fi
-
-            echo "Module proxy has not indexed $RELEASE_TAG yet (attempt $attempt/6)."
-            sleep 10
-          done
-
-          exit 1
-
-      - name: Smoke test from an external module
-        env:
-          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
-        shell: bash
-        run: |
-          consumer_directory="$(mktemp -d)"
-          cd "$consumer_directory"
-
-          go mod init example.test/go-sip-release-smoke
-          GOPROXY=https://proxy.golang.org go get "github.com/jvrs2812/go-sip@$RELEASE_TAG"
-
-          cat > main.go <<'EOF'
-          package main
-
-          import (
-              "fmt"
-
-              "github.com/jvrs2812/go-sip/sip"
-          )
-
-          func main() {
-              message := sip.NewRequest("OPTIONS", "sip:service@example.test")
-              fmt.Println(message.Method)
-          }
-          EOF
-
-          go run . | grep -Fx OPTIONS
