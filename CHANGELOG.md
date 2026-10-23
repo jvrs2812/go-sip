@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## v0.3.0-rc.2 — 2026-10-23
+
+### Fixed
+
+- Synchronize the nested audio-player module dependencies with the expanded root module.
+
 ## v0.3.0-rc.1 — 2026-10-23
 
 ### Added
