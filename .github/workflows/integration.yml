@@ -81,7 +81,7 @@ jobs:
           docker cp integration/asterisk/extensions.conf go-sip-asterisk:/etc/asterisk/extensions.conf
           docker start go-sip-asterisk
 
-          for attempt in {1..30}; do
+          for ((attempt = 0; attempt < 30; attempt++)); do
             if docker exec go-sip-asterisk asterisk -rx 'core waitfullybooted' >/dev/null 2>&1; then
               exit 0
             fi

@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## v0.3.0-rc.4 — 2026-10-23
+
+### Fixed
+
+- Fix ShellCheck findings in the workflow scripts so linting passes on GitHub-hosted runners.
+
 ## v0.3.0-rc.3 — 2026-10-23
 
 ### Fixed

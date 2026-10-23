@@ -265,7 +265,7 @@ Dependências: todas as fases anteriores para declarar todo o README entregue.
 - [x] Publicar benchmarks reproduzíveis de registro, parser, chamadas e áudio, com ambiente e tamanho da carga.
 - [x] Consolidar changelog, guia de migração, matriz de suporte e exemplos dos grupos de recursos públicos.
 - [x] Preparar releases candidatas e `v1.0.0` com gates de tag/SHA, validação, integração, notas, pré-release/latest e smoke test no Go proxy.
-- [x] Publicar a candidata `v0.3.0-rc.3` após escolher a licença MIT e verificar o commit de release. As tags `v0.3.0-rc.1` e `v0.3.0-rc.2` permanecem imutáveis: a primeira foi bloqueada pela sincronização do módulo do player, e a segunda pelo `actionlint` incompatível com Go 1.22.2.
+- [x] Publicar a candidata `v0.3.0-rc.4` após escolher a licença MIT e verificar o commit de release. As tags `v0.3.0-rc.1`, `v0.3.0-rc.2` e `v0.3.0-rc.3` permanecem imutáveis: a primeira foi bloqueada pela sincronização do módulo do player, a segunda pelo `actionlint` incompatível com Go 1.22.2 e a terceira por avisos do ShellCheck no runner.
 - [ ] Concluir `v1.0.0` após estabilizar a API e definir a política definitiva de compatibilidade.
 
 Aceite: todos os itens da seção 4 vinculados a código, testes e documentação; nenhuma caixa marcada apenas porque um header é gerado. É possível lançar uma v1 de escopo menor, mas isso não significaria concluir este plano integral.
